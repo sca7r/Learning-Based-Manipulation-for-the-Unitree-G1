@@ -41,8 +41,8 @@ def main():
     if not processed.exists() or phases is None:
         raise SystemExit(f"{args.clip} isn't processed yet: run python scripts/process_demos.py data/raw/{args.clip}.MOV")
     demo = np.load(processed)
-    # the task comes from data/sessions.csv; clips missing there are treated as pick-and-place
-    task = next((r["task"] for r in csv.DictReader(open(REPO_ROOT / "data" / "sessions.csv")) if r["clip"] == args.clip),
+    # the task comes from data/pickandplace.csv; clips missing there are treated as pick-and-place
+    task = next((r["task"] for r in csv.DictReader(open(REPO_ROOT / "data" / "pickandplace.csv")) if r["clip"] == args.clip),
                 "pick_place")
     offsets = scene.grid_offsets(cfg, args.trials) if args.grid else None
     video = REPO_ROOT / "outputs" / "replay_demos" / f"{args.clip}.mp4"
