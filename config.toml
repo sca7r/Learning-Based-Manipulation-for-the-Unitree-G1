@@ -1,0 +1,186 @@
+# Every value you might want to experiment with lives here. Copy this file and pass --config to any script
+# to try a variant without touching code.
+#
+# Not here on purpose: motor gains, default pose, action scales, foot contact shapes and the 20 ms control
+# period. Those must match how the balance policy was trained, so they are fixed in src/g1_imitation/robot.py.
+#
+# Units: metres, radians (unless a name says _deg), seconds, kilograms.
+# World frame: origin on the floor under the robot's start position, x forward, y left, z up.
+
+[balance]
+# Joints the policy sees at their default pose instead of their real state (regexes over joint names).
+#   Fingers: our finger model differs from the one the policy was trained on; showing them makes it
+#            march in place (sway 0.18 rad/s vs 0.013 hidden).
+#   Right arm: we drive it with IK; showing it makes the policy react to every reach.
+hidden_joints = ["[LR]_.*", "right_(shoulder|elbow|wrist)_.*"]
+settle_time = 2.0   # after reset, wait this long before recording the pose to hold
+hold_gain = 1.0     # velocity command per metre (or radian) of error from the held pose
+hold_limit = 0.3    # max hold command [m/s, rad/s]
+
+[scene]
+table_height = 0.725  # puts the cylinder's middle (the grip) where the arm reaches with the palm upright
+table_center = [0.45, -0.215]
+table_half_size = [0.25, 0.235]  # front edge at x = 0.20; spans y = -0.45 .. 0.02, clear of the left hand
+table_friction = [0.4, 0.005, 0.0001]  # wood: sliding, torsional, rolling
+# Right arm start pose, keeping the hand behind the table edge. Joints not listed use the default pose.
+right_arm_ready = { right_elbow_joint = 1.2 }
+# The policy's cameras, recorded in the training data: one on the head (like the G1's own head camera), one on
+# the back of the right hand looking along the fingers. pos, target and up are in the frame of body.
+cameras.head = { body = "torso_link", pos = [0.06, 0.0, 0.43], target = [0.45, -0.18, -0.35], up = [0, 0, 1], fovy = 60 }
+cameras.wrist = { body = "right_wrist_yaw_link", pos = [0.02, 0.02, 0.09], target = [0.16, 0.05, 0.0], up = [0, 0, 1], fovy = 90 }
+
+[object]  # upright cylinder, 3D-printed PLA+, treated as uniform (MuJoCo derives its inertia from shape and mass)
+# Each contact uses the larger friction of its two surfaces: cylinder-table 0.4 (PLA on wood),
+# cylinder-hand [grasp] hand_friction.
+radius = 0.025
+height = 0.15
+mass = 0.25
+friction = [0.4, 0.007, 0.0001]  # sliding, torsional [m] (~ sliding x 2/3 of the base radius), rolling [m]
+start = [0.27, -0.18]
+goal = [0.27, -0.06]
+
+[grasp]  # side grasp, like holding a bottle
+# Grasp point in the right_wrist_yaw_link frame: x along the fingers, y the palm normal, z toward the index.
+finger_root_x = 0.165     # at the finger roots, so the fingers wrap around the object
+palm_surface_y = 0.0137   # palm collision surface at the finger roots; the grasp point sits one radius beyond it
+middle_finger_z = 0.013   # level with the middle finger's root, so the cylinder's middle lines up with the middle
+                          # finger and the strong thumb-index-middle tripod sits over the center of mass
+palm_angle_deg = 80       # palm heading: 0 = facing forward, 90 = facing left
+height_above_center = 0.0  # grip at the middle, over the center of mass (higher grips let the cylinder swing)
+# Grasp rule (user, 2 Nov), both tasks: thumb and index close first and hold (all the force); middle, ring and pinky
+# follow, support_delay apart, and only rest against the object.
+stop_at_contact = ["R_middle", "R_ring", "R_pinky"]  # these stop closing where they touch the object (+ contact_squeeze)
+contact_squeeze = 0.1     # [rad] past that contact angle
+support_delay = 0.1       # [s] middle starts this long after thumb and index, ring after middle, pinky after ring
+hand_friction = [2.0, 0.005, 0.0001]  # right palm and fingers: rubber pads (the robot model has 1.0)
+# Maximum torque of each finger motor [Nm]: thumb and index hold, middle, ring and pinky only stay in contact (grasp
+# rule). Before 2 Nov the middle finger was at 1.0 too (carry tilt 17-31 deg; 42-66 deg with all fingers at 1.0).
+finger_force_limits = { R_thumb_proximal_yaw_joint = 1.0, R_thumb_proximal_pitch_joint = 1.0, R_index_proximal_joint = 1.0, R_middle_proximal_joint = 0.1, R_ring_proximal_joint = 0.1, R_pinky_proximal_joint = 0.1 }
+# The Inspire thumb has 2 motors: swing (yaw, -6..74 deg) and bend (pitch, effectively 0..34 deg, since the coupled
+# joints stop at 0). It can't open wide like a human thumb: at a mid-height grip its open pose overlaps a 50 mm
+# cylinder by ~5 mm, so it knocks the cylinder over on any sideways approach. Swung across the palm beforehand it
+# clears the grasp pose by 11 mm, and the hand comes down onto the cylinder from above (see [pick_place]).
+# Approach pose: fingers straight, thumb straight up. At the grasp pose this thumb overlaps a 50 mm cylinder by
+# 7.6 mm (measured), so it swings across (preshape) above the cylinder, before coming down.
+fingers_open = { R_thumb_proximal_yaw_joint = 0.0, R_thumb_proximal_pitch_joint = 0.0, R_index_proximal_joint = 0.0, R_middle_proximal_joint = 0.0, R_ring_proximal_joint = 0.0, R_pinky_proximal_joint = 0.0 }
+fingers_preshape = { R_thumb_proximal_yaw_joint = 1.3, R_thumb_proximal_pitch_joint = 0.0, R_index_proximal_joint = 0.0, R_middle_proximal_joint = 0.0, R_ring_proximal_joint = 0.0, R_pinky_proximal_joint = 0.0 }
+# Human-like grip: thumb and index squeeze; middle, ring and pinky only rest against the cylinder (~1.3 N). Closing all four
+# to 1.5 pushed its lower half sideways and tipped it 23-38 deg on the table before the lift (57/130 vs 123/130
+# on the same seeded trials, 31 Oct).
+# Middle, ring and pinky aim for full curl and stop where they touch (stop_at_contact), so they always reach it.
+fingers_closed = { R_thumb_proximal_yaw_joint = 1.3, R_thumb_proximal_pitch_joint = 0.5, R_index_proximal_joint = 1.5, R_middle_proximal_joint = 1.7, R_ring_proximal_joint = 1.7, R_pinky_proximal_joint = 1.7 }
+
+[ik]  # mink differential IK, re-solved every 20 ms control step
+# While the hand holds the object, the arm's soft gains (from the walking policy) let it sag under the object. The
+# object's weight is fed forward to the arm motors, and the IK target is shifted by the integral of the grasp point's
+# remaining error (load_correction_axes). Soft is kept on purpose: stiff
+# gains (Unitree's arm SDK 60 Nm/rad) can't give way while the fingers close or place, and the cylinder falls.
+load_correction_rate = 2.0  # [1/s]; the correction fades out at the same rate once the hand lets go
+load_feedforward = 1.0   # 0-1: share of the held cylinder's weight added to the arm motor targets up front (joint
+                         # torque J^T m g over the motor stiffness), fading in and out at load_correction_rate
+load_correction_axes = [1, 1, 0]  # which grasp-point errors the integral corrects (x, y, z). With the weight fed
+                         # forward, correcting z too overshoots the lift; x, y alone fix the soft arm's sideways
+                         # offset. Measured on 20 seeded trials (31 Oct): 20/20, peak hand acceleration 2.9 vs
+                         # 3.8 m/s^2, no lift overshoot (10.8 vs 14.3 cm for a 12 cm command)
+damping = 0.001           # regularization; higher is smoother near singularities, less accurate
+iterations_per_step = 3   # QP solves per control step, each integrating one 20 ms step
+rotation_weight = 0.3     # orientation vs position cost; 0 ignores the grasp orientation
+posture_weight = 0.01     # weak pull toward the default arm pose. It trades against hand accuracy (radians vs
+                          # metres), so keep it small: 0.01 costs ~0.3 mm, 0.1 on the wrist cost 16 mm.
+body_clearance = 0.04     # forearm and hand vs the rest of the robot and the table. Iterating at the boundary
+                          # creeps in by up to ~1.3 cm, so this stays 2 cm above [planner] clearance: measured
+                          # closest approach 27.6 mm over 12 starts, so the planner always accepts the IK's poses.
+collision_check_distance = 0.08  # pairs closer than this are constrained
+joint_speed_limit = 3.0   # per IK step [rad/s x 20 ms]; keeps steps small enough for the collision check
+
+[episode]  # every run of the robot, scripted or imitated: settle, planned transit, manipulation
+settle = 2.5            # the robot stands still this long before the arm moves
+hold_after = 1.0        # and keeps running this long after the manipulation ends
+lift_success = 0.08     # object must have been lifted at least this high
+place_tolerance = 0.04  # final object center within this distance of the goal (in the table plane); 3 cm until 2 Nov (user)
+max_tilt_deg = 15       # and standing upright
+grip_timeout = 2.0      # the plan waits this long at most for a firm grip before lifting, else the episode fails
+trial_spread = [0.03, 0.05]  # --trials: object start randomized by up to +-x, +-y
+random_min_move = 0.10  # --random-goals: start and goal anywhere in the workspace, at least this far apart
+camera = { lookat = [0.25, -0.12, 0.85], distance = 1.4, azimuth = 220, elevation = -25 }
+closeup = { distance = 0.4, azimuth = 150, elevation = -20 }  # second view in videos, centered on the object
+video = { width = 640, height = 480, fps = 25 }
+workspace = [[0.25, -0.32], [0.40, -0.10]]  # [x, y] corners where the hand reaches the grasp height within ~2 cm
+                        # (IK, measured; 4-8 cm outside). The robot can't step closer (knees 3 cm from the table) or
+                        # bend (the balance policy falls when the waist is moved for it), so a demo's move is fitted
+                        # into this box: same direction, centered, shortened if longer (reported).
+record_every = 2        # training data: one frame every 2 control steps (25 Hz)
+record_size = [320, 240]  # training-data camera images [width, height]
+video_trials = 3        # with --trials N, only the first 3 trials save a video (the only rendering left during generation)
+
+[retarget]  # recorded demonstration -> robot hand path (scripts/replay_demos.py)
+palm_to_joints = 0.015  # the knuckle keypoints sit about this deep below the palm surface
+path_smoothing = 0.3    # [s] moving average over the carried hand path, against tracking jitter
+carry_height = 0.12     # the carry's highest point above the grasp, as in [pick_place] (the demo's own reads too low)
+smoothing_frames = 5    # moving average over the hand path and orientation, against tracking jitter
+
+[standup]  # stand-up replay of a lying cylinder from a clip (retarget.standup_plan)
+lift_off = 0.02          # [m] the cylinder starts to move when the fingertips are this far above their lowest point
+release_seconds = 1.5    # of the video after the fingers open that the robot copies
+closing_window = 3.0     # [s] before contact in which the fingers' closing is looked for
+cylinder_seen_until = 1.0  # [s] before lift-off: the lying cylinder is located from the frames before that (the hand covers it)
+closing_onset = 0.1      # the closing starts where a finger has done this fraction of its closing
+descent_seconds = 1.5    # from above the cylinder, hand open, to where the closing starts
+approach_height = 0.13   # [m] above the grasp point, where the descent starts
+finger_max = [1.3, 0.6, 1.7, 1.7, 1.7, 1.7]  # [rad] the finger drives' upper limits
+# From the demonstrator (not visible in the video): the cylinder never touches the palm; thumb and index hold it
+# first, then the other fingers close in turn; the finger forces are the same as in pick-and-place ([grasp]).
+palm_free = true          # an attempt where the palm touches the cylinder fails
+finger_force_limits = { R_thumb_proximal_yaw_joint = 1.0, R_thumb_proximal_pitch_joint = 1.0, R_index_proximal_joint = 1.0, R_middle_proximal_joint = 0.1, R_ring_proximal_joint = 0.1, R_pinky_proximal_joint = 0.1 }  # as [grasp] (grasp rule)
+                           # (the tracker measured 0.03-0.15 s where it shows one)
+
+[pick_place]  # the robot's own grasp and release, used by every replay (retarget.demo_plan)
+# The planner brings the hand to the first waypoint; from there it moves in straight lines between them. Each target
+# is relative to the object's start or the goal: "back" moves away from it along the palm normal, "toward" (optional)
+# moves it toward the robot's body, "up" raises it
+# above the grasp height. "duration" is the time to get there. "hand" is the pose reached by then ([grasp]
+# fingers_open / fingers_preshape / fingers_closed); the hand changes gradually over the segment.
+# until = "grip" holds at the end of the segment until thumb and index or middle finger hold the object.
+# The hand comes down onto the cylinder and leaves it vertically: the cylinder has the same cross-section at every
+# height, so a hand clear of it at the grasp pose stays clear all the way down. Start height, measured with the
+# real collision shapes: cylinder top 7.5 cm above the grasp point + the hand's lowest part ~6 cm below it +
+# [planner] clearance 2 cm = 15.5 cm, rounded up to 16.
+# above/thumb/descend 1 cm toward the robot's body: the swung-across thumb hit the cylinder first in 19 of 23 failed tries
+# (2 Nov); expert 105/130 with it vs 108/130 without, knocked over before the lift 8 vs 14, tipped after it 10 vs 3
+waypoints = [
+  { name = "above",    duration = 0.5, at = "object", back = 0.0, toward = 0.01, up = 0.16,  hand = "open" },
+  { name = "thumb",    duration = 0.5, at = "object", back = 0.0, toward = 0.01, up = 0.16,  hand = "preshape" },
+  { name = "descend",  duration = 2.0, at = "object", back = 0.0, toward = 0.01, up = 0.0,   hand = "preshape" },
+  { name = "close",    duration = 1.0, at = "object", back = 0.0, up = 0.0,   hand = "closed", until = "grip" },
+  { name = "lift",     duration = 2.0, at = "object", back = 0.0, up = 0.12,  hand = "closed" },
+  { name = "carry",    duration = 2.0, at = "goal",   back = 0.0, up = 0.12,  hand = "closed" },
+  { name = "lower",    duration = 1.5, at = "goal",   back = 0.0, up = 0.005, hand = "closed" },
+  { name = "release",  duration = 1.0, at = "goal",   back = 0.0, up = 0.005, hand = "preshape" },
+  { name = "rise",     duration = 2.0, at = "goal",   back = 0.0, up = 0.16,  hand = "preshape" },
+]
+
+[hand_tracking]
+# The camera (field of view) and the way the sheet is turned are measured per clip (hand_tracking.fit_camera, sheet_to_table).
+# Table markers: data/aruco_board_a4.pdf, four 60 mm markers around the sheet's center (the table origin), x toward the
+# sheet's right edge, y toward its top edge. Any of them is enough; more give a steadier pose.
+marker_dictionary = "DICT_4X4_50"
+marker_size = 0.06  # black square edge
+markers = { 0 = [-0.055, 0.055], 1 = [0.055, 0.055], 2 = [-0.055, -0.055], 3 = [0.055, -0.055] }  # id = center [x, y]
+# The cylinder ([object] radius and height): a dark blob whose shape matches it standing on the table.
+cylinder = { max_value = 80, min_iou = 0.6, min_pixels = 500, max_distance = 0.6, lying_step_deg = 15 }  # HSV value 0-255 (black
+# cylinder); overlap with its projected outline; blob size; farther from the sheet's center [m] = background
+
+[demos]  # automatic phase labels in scripts/process_demos.py
+closed_fraction = 0.5   # fingers count as closed above this fraction of the clip's open-to-closed range
+lift_height = 0.02      # the wrist counts as lifted this far above its height at the grasp
+smoothing_frames = 5    # moving average over the closure signal, against tracking jitter
+
+[planner]  # collision-free arm moves through free space (src/g1_imitation/motion_planner.py, OMPL RRT-Connect)
+clearance = 0.02         # forearm and hand stay at least this far from the table, the object and the body [m]
+check_resolution = 0.001 # spacing of collision checks along a path, as a fraction of the joint space's extent
+                         # (~12 rad): 0.001 = 0.012 rad, ~4 mm at the hand, finer than the 2 cm clearance
+timeout = 5.0            # planning time limit [s]
+joint_speed = 1.0        # no arm joint moves faster than this along a planned path [rad/s]
+
+[evaluate]  # scripts/evaluate.py: the trained policy alone drives the arm and hand
+seconds = 20  # policy run time after settling; the 529 generated episodes last 13-18 s (327-449 frames at 25 Hz)

@@ -1,0 +1,23 @@
+[project]
+name = "g1-imitation"
+version = "0.1.0"
+description = "Phone-video demonstrations to Unitree G1 + Inspire hand pick-and-place and stand-up in MuJoCo"
+requires-python = ">=3.10"
+dependencies = [  # the versions this was developed and tested with
+    "mujoco==3.17.0",
+    "mink==1.3.0",
+    "ompl==2.0.1",
+    "onnxruntime==1.31.1",
+    "dex-retargeting==0.5.0",
+    "torch==2.15.0",
+    "opencv-python==5.0.0.93",
+    "numpy==2.5.4",
+]
+
+[project.optional-dependencies]
+train = ["lerobot==0.4.4"]  # ACT / Diffusion Policy training and evaluation (needs a CUDA torch)
+tools = ["optuna==4.5.0", "matplotlib==3.11.2", "pillow==13.0.0"]  # grasp search, README plot, showcase video
+
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"

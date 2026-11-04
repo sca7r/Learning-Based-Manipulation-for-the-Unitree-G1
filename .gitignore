@@ -1,0 +1,27 @@
+.venv/
+__pycache__/
+*.egg-info/
+assets/
+outputs/
+Helper Repos/
+.claude/settings.local.json
+
+# Agent notes (local only)
+CLAUDE.md
+# Large or regenerable data: phone clips (>100 MB each), generated episodes, LeRobot datasets
+data/raw/*
+!data/raw/IMG_8465.MOV
+!data/raw/IMG_8473.MOV
+!data/raw/IMG_8484.MOV
+data/episodes*/
+data/lerobot/
+data/practice/
+# Development tools outside the main pipeline (kept locally): scripted baseline, standing-balance benchmark
+scripts/pick_place.py
+scripts/benchmark_standing.py
+# Working notes (challenge brief copy, paper notes)
+docs/
+scripts/plots.py
+# Private: server access details
+Harsh.xlsx
+*.xlsx
