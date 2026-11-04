@@ -1,4 +1,4 @@
-# g1-imitation: phone videos of my hand to a G1 humanoid in MuJoCo
+# Learning Based manipulation on a Unitree G1 Humanoid
 
 A Unitree G1 humanoid with a five-finger Inspire hand does two cylinder tasks in MuJoCo, learned from phone videos
 of my own right hand:
@@ -8,10 +8,6 @@ of my own right hand:
 
 One camera-based policy (imitation learning) does both tasks and picks the grip from what it sees. The final policy
 is ACT (v3); a Diffusion Policy trained on the same data is compared against it below.
-
-Entry for the Awign x Armature AI Labs Humanoid Challenge (Nov 2026). Direction taken: *post-train a policy on a
-simple task using your own recordings*, with five-finger retargeting and touch-gated grasping, plus attempts to push
-the success rate up with RL and self-improvement (results below, including the ones that failed).
 
 ## Key features
 
