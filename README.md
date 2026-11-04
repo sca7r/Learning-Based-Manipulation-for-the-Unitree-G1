@@ -353,8 +353,17 @@ not comparable.
 
 ### What didn't work
 
-- **Other hands.** Unitree Dex5-1: the thumb never touched (1-2/10). Sharpa Wave: the arm sagged 6-7 cm under the
-  1.32 kg hand at the balance policy's arm gains (0/10). Kept as git tags `dex5-1-hand`, `sharpa-wave-hand`.
+- **Robot hands are not human hands.** I tried three five-finger hands, and each one's build limited what it could
+  copy from my videos:
+    - Unitree Dex5-1: the thumb never touched the cylinder (1-2/10).
+    - Sharpa Wave: at 1.32 kg it was too heavy for the arm, which sagged 6-7 cm at the balance policy's arm gains
+      (0/10).
+    - Inspire (kept): six motors for five fingers. Each finger bends as one piece from a single motor, and only the
+      thumb has two. My fingers bend at every joint on their own, and my thumb opens much wider, so the robot can
+      only reach my grip from above, and the grip has to be adapted rather than copied.
+
+  The video also shows where my fingers are, not how hard they press, so the force split between fingers is my
+  choice. Much of the work in this project went into closing that gap.
 - **Reach.** The arm reaches grasp height only in about 15 x 22 cm. My clips move the cylinder 25-41 cm, so each
   move is centred in that box and shortened. Walking (knees 3 cm from the table) and bending the waist (the balance
   policy falls, 0/5) were tried and removed.
